@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ugeen VIP Player</title>
+    <link href="https://vjs.zencdn.net/7.20.3/video-js.css" rel="stylesheet" />
+    <style>
+        body { background-color: #0b0b0b; color: #eee; font-family: sans-serif; margin: 0; padding: 0; }
+        .app-bar { background: #1a1a1a; border-bottom: 2px solid #e50914; padding: 15px; text-align: center; font-weight: bold; font-size: 1.2em; position: sticky; top: 0; z-index: 100; }
+        
+        /* فيديو ثابت في الأعلى */
+        .video-container { position: sticky; top: 55px; width: 100%; background: #000; aspect-ratio: 16/9; z-index: 99; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        .video-js { width: 100% !important; height: 100% !important; }
+
+        /* القائمة */
+        .list-section { padding: 10px; }
+        .search-bar { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #333; background: #222; color: #fff; box-sizing: border-box; }
+        
+        .channel-item { display: flex; align-items: center; background: #1a1a1a; margin-bottom: 8px; padding: 10px; border-radius: 8px; cursor: pointer; border-right: 4px solid transparent; }
+        .channel-item:active { background: #333; border-right-color: #e50914; }
+        .channel-item img { width: 50px; height: 50px; border-radius: 5px; object-fit: contain; margin-left: 15px; background: #000; }
+        .channel-name { font-size: 0.9em; font-weight: 500; line-height: 1.4; }
+
+        .status { text-align: center; padding: 20px; color: #888; }
+    </style>
+</head>
+<body>
+
+<div class="app-bar">UGEEN LIVE TV</div>
+
+<div class="video-container">
+    <video id="player" class="video-js vjs-default-skin vjs-big-play-centered" controls preload="auto">
+        <source src="" type="application/x-mpegURL">
+    </video>
+</div>
+
+<div class="list-section">
+    <input type="text" id="search" class="search-bar" placeholder="ابحث عن قناة أو باقة...">
+    <div id="status" class="status">جاري جلب قائمة القنوات...</div>
+    <div id="channels"></div>
+</div>
+
+<script src="https://vjs.zencdn.net/7.20.3/video.min.js"></script>
+<script>
+    const player = videojs('player');
+    // الرابط الخاص بك
+    const m3uUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('http://ugeen.live:8080/get.php?username=Ugeen_VIPLWR5pC&password=W3LFqS&type=m3u');
+
+    let channelsData = [];
+
+    async function loadM3U() {
+        try {
+            const response = await fetch(m3uUrl);
+            const text = await response.text();
+            parseM3U(text);
+        } catch (err) {
+            document.getElementById('status').innerText = 'خطأ في الاتصال بالسيرفر. تأكد من الإنترنت.';
+        }
+    }
+
+    function parseM3U(content) {
+        const lines = content.split('\n');
+        let channels = [];
+        for (let i = 0; i < lines.length; i++) {
+            if (lines[i].startsWith('#EXTINF')) {
+                const info = lines[i];
+                const url = lines[i + 1]?.trim();
+                if (url && url.startsWith('http')) {
+                    const name = info.split(',')[1] || "قناة غير معروفة";
+                    const logoMatch = info.match(/tvg-logo="([^"]+)"/);
+                    const logo = logoMatch ? logoMatch[1] : '';
+                    channels.push({ name, url, logo });
+                }
+            }
+        }
+        channelsData = channels;
+        render(channelsData);
+        document.getElementById('status').style.display = 'none';
+    }
+
+    function render(list) {
+        const container = document.getElementById('channels');
+        container.innerHTML = '';
+        list.slice(0, 200).forEach(item => { // عرض أول 200 قناة لسرعة الأداء
+            const div = document.createElement('div');
+            div.className = 'channel-item';
+            div.innerHTML = `
+                <img src="${item.logo}" onerror="this.src='https://via.placeholder.com/50?text=TV'">
+                <div class="channel-name">${item.name}</div>
+            `;
+            div.onclick = () => {
+                player.src({ type: 'application/x-mpegURL', src: item.url });
+                player.play();
+                window.scrollTo({top: 0, behavior: 'smooth'});
+            };
+            container.appendChild(div);
+        });
+    }
+
+    document.getElementById('search').oninput = (e) => {
+        const val = e.target.value.toLowerCase();
+        const filtered = channelsData.filter(c => c.name.toLowerCase().includes(val));
+        render(filtered);
+    };
+
+    loadM3U();
+</script>
+
+</body>
+</html>
